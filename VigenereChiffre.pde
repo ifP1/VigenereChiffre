@@ -1,19 +1,20 @@
 import java.util.*;
+import java.util.stream.Collectors;
 
 void setup() {
-  String toDecrypt = appendStrings(loadStrings("/gT.txt"));
+  String toDecrypt = prepareText(appendStrings(loadStrings("gT.txt")));
   //toDecrypt = encode(toDecrypt, "traenen");
   //print(decode(toDecrypt, "Traenen"));
-  String Schluessel = quantityAnalyze(prepareText(toDecrypt), getKeyLength(toDecrypt), 'E');
-  print(Schluessel.length() + "\n" + Schluessel);
+  String Schluessel = quantityAnalyze(toDecrypt, getKeyLength(toDecrypt), 'E');
+  System.out.printf("The key to decrypt the given input is the following:%n%s (Length of %d)",Schluessel, Schluessel.length());
   //print(decrypt(toDecrypt));
   exit();
 }
 
-String appendStrings(String[] input){
+String appendStrings(String[] input) {
   String output = "";
-  for(int i = 0; i < input.length; i++){
-    output += input[i]; 
+  for (int i = 0; i < input.length; i++) {
+    output += input[i];
   }
   return output;
 }
@@ -48,20 +49,15 @@ String crypt(String text, String Schluessel, boolean ENcrypt) {
 }
 
 int getKeyLength(String text) {
-  //Collect all 
+  //Collect all
   HashMap<String, ArrayList<Integer>> dreierZeichenketten = new HashMap<String, ArrayList<Integer>>();
   int charChainLength = 3;
-  for (int i = 0; i < text.length() - charChainLength; i++) {
-    if (dreierZeichenketten.containsKey(text.subSequence(i, i + charChainLength).toString())) {
-      ArrayList<Integer> Temp = dreierZeichenketten.get(text.subSequence(i, i + charChainLength).toString());
-      Temp.add(i);
-    } else {
-      ArrayList<Integer> Temp = new ArrayList<Integer>();
-      Temp.add(i);
-      dreierZeichenketten.put(text.subSequence(i, i + charChainLength).toString(), Temp);
-    }
+  for (int i = 0; i <= text.length() - charChainLength; i++) {
+    String cur = text.substring(i, i + charChainLength);
+    dreierZeichenketten.putIfAbsent(cur, new ArrayList<Integer>());
+    dreierZeichenketten.get(cur).add(i);
   }
-
+  
   //Collect all distances
   ArrayList<Integer> allDistances = new ArrayList<Integer>();
   Object[] allKeys = dreierZeichenketten.keySet().toArray();
@@ -80,49 +76,49 @@ int getKeyLength(String text) {
   for (int i = 0; i < allDistances.size(); i++) {
     int temp = allDistances.get(i);
     for (int j = 3; j < temp; j++) {
-      if(temp % j == 0){
+      if (temp % j == 0) {
         allFactors.add(j);
       }
     }
   }
-  
+
   //Select most common factor
   HashMap<Integer, Integer> factorQuantity = new HashMap<Integer, Integer>();
-  for(int i = 0; i < allFactors.size(); i++){
+  for (int i = 0; i < allFactors.size(); i++) {
     int tempFactor = allFactors.get(i);
-    if(factorQuantity.containsKey(tempFactor)){
+    if (factorQuantity.containsKey(tempFactor)) {
       int tempCount = factorQuantity.get(tempFactor);
       tempCount++;
       factorQuantity.put(tempFactor, tempCount);
-    }else{
+    } else {
       factorQuantity.put(tempFactor, 1);
     }
   }
   int mostCommonFactor = 0;
   int quantityOfMostCommonFactor = 0;
-  for(int i = text.length() - 1; i >= 0; i--){
-    if(factorQuantity.containsKey(i)){
-      if(factorQuantity.get(i) > quantityOfMostCommonFactor){
+  for (int i = text.length() - 1; i >= 0; i--) {
+    if (factorQuantity.containsKey(i)) {
+      if (factorQuantity.get(i) > quantityOfMostCommonFactor) {
         mostCommonFactor = i;
         quantityOfMostCommonFactor = factorQuantity.get(i);
       }
     }
   }
-  
+
   return mostCommonFactor;
 }
 
 String quantityAnalyze(String text, int keyLength, char mostCommonChar) {
   String Schluessel = "";
-  for(int i = 0; i < keyLength; i++){
+  for (int i = 0; i < keyLength; i++) {
     int[] charQuantity = new int[26];
-    for(int j = i; j < text.length(); j += keyLength){
+    for (int j = i; j < text.length(); j += keyLength) {
       charQuantity[text.charAt(j) - 65]++;
     }
     int highestQuantity = 0;
     int highestQuantityIndex = 0;
-    for(int j = 0; j < charQuantity.length; j++){
-      if(charQuantity[j] > highestQuantity){
+    for (int j = 0; j < charQuantity.length; j++) {
+      if (charQuantity[j] > highestQuantity) {
         highestQuantity = charQuantity[j];
         highestQuantityIndex = j;
       }
