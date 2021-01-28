@@ -1,0 +1,79 @@
+name: Processing
+
+on: 
+  - push
+  - pull_request
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ifP1/setup-processing@v1.0.2
+        with:
+          version: 3.5.4
+      - name: Building...
+        run: processing-java --sketch=$PWD --build
+        
+  build:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ifP1/setup-processing@v1.0.2
+        with:
+          version: 3.5.4
+      - name: Get file prefix
+        id: get_file
+        run: echo ::set-output name=PREFIX::${GITHUB_REPOSITORY/${{ github.repository_owner }}\//}-${GITHUB_REF/refs\/tags\//}
+      - name: Exporting windows application...
+        run: processing-java --sketch=$PWD --output=out/${{steps.get_file.outputs.PREFIX}}-windows --no-java --platform=windows --export
+      - name: Exporting linux application...
+        run: processing-java --sketch=$PWD --output=out/${{steps.get_file.outputs.PREFIX}}-linux --no-java --platform=linux --export
+      - name: Compressing and Packaging...
+        run: |
+          cd out
+          mkdir export
+          tar -czvf export/${{steps.get_file.outputs.PREFIX}}-linux.tar.gz ${{steps.get_file.outputs.PREFIX}}-linux/
+          zip -r export/${{steps.get_file.outputs.PREFIX}}-windows.zip ${{steps.get_file.outputs.PREFIX}}-windows/
+      - name: Upload a Build Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          path: out/export/*
+
+  release:
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download a Build Artifact
+        uses: actions/download-artifact@v2
+      - name: GitHub Release
+        uses: softprops/action-gh-release@v0.1.5
+        with:
+          prerelease: ${{contains(github.ref, '-') || contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc')}}
+          files: |
+            artifact/*
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+  deploy:
+    if: ${{!contains(github.ref, '-') && !contains(github.ref, 'alpha') && !contains(github.ref, 'beta') && !contains(github.ref, 'rc') && startsWith(github.ref, 'refs/tags/v')}}
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Generating .txt files
+        run: |
+          mkdir -p out/txt
+          for f in *.pde; do
+            cp "$f" "out/txt/${f//.pde/.txt}";
+          done
+      - name: Upload ftp
+        uses: sebastianpopp/ftp-action@releases/v2
+        with:
+          host: ${{secrets.FTP_HOST}}
+          user: ${{secrets.FTP_USER}}
+          password: ${{ secrets.FTP_PASSWORD }}
+          localDir: "out/txt"
+          remoteDir: ${{secrets.FTP_REMOTE_DIR}}
